@@ -90,4 +90,11 @@ dependencies {
 
   // DocumentFile — SAF document tree traversal
   implementation(libs.androidx.documentfile)
+
+  // Media3 (ExoPlayer) — video playback
+  implementation(libs.androidx.media3.exoplayer)
+  implementation(libs.androidx.media3.ui)
+
+  // DataStore — theme preferences
+  implementation(libs.androidx.datastore.preferences)
 }

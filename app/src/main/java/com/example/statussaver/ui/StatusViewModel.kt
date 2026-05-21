@@ -4,11 +4,14 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.statussaver.data.PreferencesManager
 import com.example.statussaver.data.StatusItem
 import com.example.statussaver.data.StorageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -37,11 +40,25 @@ sealed interface DownloadState {
     data class Failed(val reason: String) : DownloadState
 }
 
+/** State for the full-screen media viewer. */
+data class ViewerState(
+    val initialIndex: Int,
+    val items: List<StatusItem>
+)
+
 // ─── ViewModel ───────────────────────────────────────────────────────────────
 
 class StatusViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo = StorageRepository(application)
+    private val prefs = PreferencesManager(application)
+
+    // ─── Theme State ───
+    val isDarkMode: StateFlow<Boolean?> = prefs.isDarkModeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val themeColor: StateFlow<String?> = prefs.themeColorFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /** Main gallery UI state. */
     private val _uiState = MutableStateFlow<GalleryUiState>(GalleryUiState.Loading)
@@ -59,8 +76,30 @@ class StatusViewModel(application: Application) : AndroidViewModel(application) 
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
 
+    /** Full screen viewer state (null means closed) */
+    private val _viewerState = MutableStateFlow<ViewerState?>(null)
+    val viewerState: StateFlow<ViewerState?> = _viewerState.asStateFlow()
+
     init {
         checkPersistedPermission()
+    }
+
+    // ─── Theme Handlers ───
+    fun setDarkMode(isDark: Boolean) {
+        viewModelScope.launch { prefs.saveIsDarkMode(isDark) }
+    }
+
+    fun setThemeColor(color: String) {
+        viewModelScope.launch { prefs.saveThemeColor(color) }
+    }
+
+    // ─── Viewer Handlers ───
+    fun openViewer(initialIndex: Int, items: List<StatusItem>) {
+        _viewerState.value = ViewerState(initialIndex, items)
+    }
+
+    fun closeViewer() {
+        _viewerState.value = null
     }
 
     // ─── Initialisation ──────────────────────────────────────────────────────
@@ -110,6 +149,10 @@ class StatusViewModel(application: Application) : AndroidViewModel(application) 
                     val uriKeys = items.map { it.uri.toString() }.toSet()
                     _downloadStates.update { prev ->
                         prev.filterKeys { it in uriKeys }
+                    }
+                    // Update viewer if open
+                    _viewerState.value?.let { currentViewer ->
+                        _viewerState.value = currentViewer.copy(items = items)
                     }
                 }
                 .onFailure { err ->

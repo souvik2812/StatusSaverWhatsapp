@@ -25,7 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -91,6 +91,7 @@ fun GalleryScreen(
     onGrantAccess: () -> Unit,
     onRefresh: () -> Unit,
     onDownload: (StatusItem) -> Unit,
+    onItemClick: (item: StatusItem, index: Int, items: List<StatusItem>) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -136,7 +137,8 @@ fun GalleryScreen(
                     StatusGrid(
                         items = filtered,
                         downloadStates = downloadStates,
-                        onDownload = onDownload
+                        onDownload = onDownload,
+                        onItemClick = { item, index -> onItemClick(item, index, filtered) }
                     )
                 }
             }
@@ -309,7 +311,8 @@ private fun EmptyScreen(selectedTab: Int, onRefresh: () -> Unit) {
 private fun StatusGrid(
     items: List<StatusItem>,
     downloadStates: Map<String, DownloadState>,
-    onDownload: (StatusItem) -> Unit
+    onDownload: (StatusItem) -> Unit,
+    onItemClick: (StatusItem, Int) -> Unit
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
@@ -318,11 +321,12 @@ private fun StatusGrid(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        items(items = items, key = { it.uri.toString() }) { item ->
+        itemsIndexed(items = items, key = { _, item -> item.uri.toString() }) { index, item ->
             StatusCard(
                 item = item,
                 downloadState = downloadStates[item.uri.toString()] ?: DownloadState.Idle,
-                onDownload = { onDownload(item) }
+                onDownload = { onDownload(item) },
+                onClick = { onItemClick(item, index) }
             )
         }
     }
@@ -334,7 +338,8 @@ private fun StatusGrid(
 private fun StatusCard(
     item: StatusItem,
     downloadState: DownloadState,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    onClick: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -353,6 +358,7 @@ private fun StatusCard(
             .fillMaxWidth()
             .aspectRatio(0.85f)
             .scale(scale)
+            .clickable(onClick = onClick)
             .border(
                 width = 1.dp,
                 brush = Brush.linearGradient(listOf(NeonViolet.copy(alpha = 0.4f), ElectricBlue.copy(alpha = 0.2f))),
