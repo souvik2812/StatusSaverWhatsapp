@@ -1,5 +1,6 @@
 package com.example.statussaver.ui.components
 
+import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -20,12 +21,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +55,7 @@ fun MediaViewerScreen(
     onDownload: (StatusItem) -> Unit,
     onClose: () -> Unit
 ) {
+    val context = LocalContext.current
     val pagerState = rememberPagerState(initialPage = initialIndex) { items.size }
     var showOverlays by remember { mutableStateOf(true) }
 
@@ -66,9 +70,11 @@ fun MediaViewerScreen(
             key = { items[it].uri.toString() }
         ) { page ->
             val item = items[page]
+            val isFocused = page == pagerState.currentPage
             // Pass visibility state so click can toggle overlays
             MediaViewerItem(
                 item = item,
+                isFocused = isFocused,
                 onToggleOverlays = { showOverlays = !showOverlays }
             )
         }
@@ -97,6 +103,21 @@ fun MediaViewerScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+                // Share Button
+                IconButton(onClick = {
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = if (currentItem.isVideo) "video/*" else "image/*"
+                        putExtra(Intent.EXTRA_STREAM, currentItem.uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(shareIntent, "Share Status"))
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share",
                         tint = Color.White
                     )
                 }
@@ -136,6 +157,7 @@ fun MediaViewerScreen(
 @Composable
 fun MediaViewerItem(
     item: StatusItem,
+    isFocused: Boolean,
     onToggleOverlays: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -151,7 +173,7 @@ fun MediaViewerItem(
         contentAlignment = Alignment.Center
     ) {
         if (item.isVideo) {
-            VideoPlayer(uri = item.uri)
+            VideoPlayer(uri = item.uri, playWhenReady = isFocused)
         } else {
             AsyncImage(
                 model = item.uri,
@@ -164,15 +186,19 @@ fun MediaViewerItem(
 }
 
 @Composable
-fun VideoPlayer(uri: Uri) {
+fun VideoPlayer(uri: Uri, playWhenReady: Boolean) {
     val context = LocalContext.current
     
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(uri))
             prepare()
-            playWhenReady = true
+            this.playWhenReady = playWhenReady
         }
+    }
+
+    LaunchedEffect(playWhenReady) {
+        exoPlayer.playWhenReady = playWhenReady
     }
 
     DisposableEffect(
