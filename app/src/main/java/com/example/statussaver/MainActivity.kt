@@ -49,10 +49,12 @@ import com.example.statussaver.ui.StatusViewModel
 import com.example.statussaver.ui.components.GalleryScreen
 import com.example.statussaver.ui.components.MediaViewerScreen
 
+import androidx.activity.SystemBarStyle
+import androidx.compose.runtime.DisposableEffect
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             val vm: StatusViewModel = viewModel()
             val isDark by vm.isDarkMode.collectAsState()
@@ -61,6 +63,20 @@ class MainActivity : ComponentActivity() {
             val systemDark = isSystemInDarkTheme()
             val currentIsDark = isDark ?: systemDark
             val currentColor = color ?: "Violet"
+
+            DisposableEffect(currentIsDark) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(
+                        android.graphics.Color.TRANSPARENT,
+                        android.graphics.Color.TRANSPARENT,
+                    ) { currentIsDark },
+                    navigationBarStyle = SystemBarStyle.auto(
+                        android.graphics.Color.TRANSPARENT,
+                        android.graphics.Color.TRANSPARENT,
+                    ) { currentIsDark }
+                )
+                onDispose {}
+            }
 
             StatusSaverTheme(
                 isDarkMode = currentIsDark,

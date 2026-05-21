@@ -101,7 +101,7 @@ fun GalleryScreen(
             PrimaryScrollableTabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = NeonViolet,
+                contentColor = MaterialTheme.colorScheme.primary,
                 edgePadding = 0.dp,
             ) {
                 TABS.forEachIndexed { index, label ->
@@ -111,6 +111,7 @@ fun GalleryScreen(
                         text = {
                             Text(
                                 text = label,
+                                color = if (selectedTab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
                                 fontSize = 14.sp
                             )
@@ -153,11 +154,7 @@ private fun PermissionScreen(onGrantAccess: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF0D0D1A), Color(0xFF13132B), Color(0xFF1A1A3E))
-                )
-            ),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -169,16 +166,16 @@ private fun PermissionScreen(onGrantAccess: () -> Unit) {
                 modifier = Modifier
                     .size(100.dp)
                     .background(
-                        Brush.radialGradient(listOf(NeonViolet.copy(alpha = 0.3f), Color.Transparent)),
+                        Brush.radialGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), Color.Transparent)),
                         shape = CircleShape
                     )
-                    .border(1.dp, NeonViolet.copy(alpha = 0.6f), CircleShape),
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.FolderOpen,
                     contentDescription = null,
-                    tint = NeonViolet,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(52.dp)
                 )
             }
@@ -189,7 +186,7 @@ private fun PermissionScreen(onGrantAccess: () -> Unit) {
                 text = "Status Saver",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
             )
 
@@ -198,7 +195,7 @@ private fun PermissionScreen(onGrantAccess: () -> Unit) {
             Text(
                 text = "Grant access to your WhatsApp Statuses folder to view and save media.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.65f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
                 textAlign = TextAlign.Center,
                 lineHeight = 22.sp
             )
@@ -214,9 +211,7 @@ private fun PermissionScreen(onGrantAccess: () -> Unit) {
                     .fillMaxWidth()
                     .height(54.dp)
                     .clip(RoundedCornerShape(27.dp))
-                    .background(
-                        Brush.horizontalGradient(listOf(NeonViolet, ElectricBlue))
-                    )
+                    .background(MaterialTheme.colorScheme.primary)
             ) {
                 Icon(
                     imageVector = Icons.Default.FolderOpen,
@@ -227,7 +222,7 @@ private fun PermissionScreen(onGrantAccess: () -> Unit) {
                 Spacer(Modifier.width(10.dp))
                 Text(
                     "Grant Folder Access",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
@@ -238,7 +233,7 @@ private fun PermissionScreen(onGrantAccess: () -> Unit) {
             Text(
                 text = "Navigate to:\nAndroid/media/com.whatsapp/WhatsApp/Media/.Statuses",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.4f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                 textAlign = TextAlign.Center,
                 lineHeight = 18.sp
             )
@@ -251,13 +246,13 @@ private fun PermissionScreen(onGrantAccess: () -> Unit) {
 @Composable
 private fun LoadingScreen() {
     Box(
-        Modifier.fillMaxSize(),
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = NeonViolet, strokeWidth = 3.dp)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 3.dp)
             Spacer(Modifier.height(16.dp))
-            Text("Loading statuses…", color = Color.White.copy(alpha = 0.6f))
+            Text("Loading statuses…", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
         }
     }
 }
@@ -266,16 +261,16 @@ private fun LoadingScreen() {
 
 @Composable
 private fun ErrorScreen(message: String, onRetry: () -> Unit) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
             Icon(Icons.Default.Error, contentDescription = null, tint = com.example.statussaver.theme.ErrorRed, modifier = Modifier.size(52.dp))
             Spacer(Modifier.height(12.dp))
-            Text(message, color = Color.White.copy(alpha = 0.75f), textAlign = TextAlign.Center)
+            Text(message, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f), textAlign = TextAlign.Center)
             Spacer(Modifier.height(20.dp))
-            Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = NeonViolet)) {
+            Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Retry")
+                Text("Retry", color = MaterialTheme.colorScheme.onPrimary)
             }
         }
     }
@@ -290,16 +285,16 @@ private fun EmptyScreen(selectedTab: Int, onRefresh: () -> Unit) {
         2 -> "No videos found"
         else -> "No statuses found"
     }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
             Text("🌫", fontSize = 52.sp)
             Spacer(Modifier.height(12.dp))
-            Text(label, color = Color.White.copy(alpha = 0.6f), textAlign = TextAlign.Center)
+            Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), textAlign = TextAlign.Center)
             Spacer(Modifier.height(8.dp))
-            Text("Pull up on WhatsApp and view some statuses first.", color = Color.White.copy(alpha = 0.4f), textAlign = TextAlign.Center, fontSize = 13.sp)
+            Text("Pull up on WhatsApp and view some statuses first.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f), textAlign = TextAlign.Center, fontSize = 13.sp)
             Spacer(Modifier.height(20.dp))
             IconButton(onClick = onRefresh) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = NeonViolet, modifier = Modifier.size(32.dp))
+                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
             }
         }
     }
@@ -352,7 +347,7 @@ private fun StatusCard(
 
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF13132B)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -442,10 +437,10 @@ private fun StatusCard(
 @Composable
 private fun DownloadButton(downloadState: DownloadState, onDownload: () -> Unit) {
     val bgColor = when (downloadState) {
-        is DownloadState.Idle       -> NeonViolet
+        is DownloadState.Idle       -> MaterialTheme.colorScheme.primary
         is DownloadState.InProgress -> DownloadingAmber
         is DownloadState.Done       -> SuccessGreen
-        is DownloadState.Failed     -> com.example.statussaver.theme.ErrorRed
+        is DownloadState.Failed     -> MaterialTheme.colorScheme.error
     }
 
     Box(
