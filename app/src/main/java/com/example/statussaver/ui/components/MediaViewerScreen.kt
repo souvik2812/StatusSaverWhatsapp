@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -42,6 +43,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.media3.common.MediaItem
@@ -75,81 +78,93 @@ fun MediaViewerScreen(
         ) { page ->
             val item = items[page]
             val isFocused = page == pagerState.currentPage
-            // Pass visibility state so click can toggle overlays
-            MediaViewerItem(
-                item = item,
-                isFocused = isFocused,
-                onToggleOverlays = { showOverlays = !showOverlays }
-            )
+
+            // Audio files open their own full-screen player; images/videos go to MediaViewerItem
+            if (item.isAudio) {
+                AudioPlayerScreen(
+                    item = item,
+                    downloadStates = downloadStates,
+                    onDownload = onDownload,
+                    onClose = onClose
+                )
+            } else {
+                MediaViewerItem(
+                    item = item,
+                    isFocused = isFocused,
+                    onToggleOverlays = { showOverlays = !showOverlays }
+                )
+            }
         }
 
-        // Overlays
-        AnimatedVisibility(
-            visible = showOverlays,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(8.dp)
-        ) {
-            val currentItem = items[pagerState.currentPage]
-            val dlState = downloadStates[currentItem.uri.toString()] ?: DownloadState.Idle
-
-            Row(
-                modifier = Modifier.background(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    shape = MaterialTheme.shapes.medium
-                )
+        // Overlays (only for image/video pages)
+        val currentItem = items[pagerState.currentPage]
+        if (!currentItem.isAudio) {
+            AnimatedVisibility(
+                visible = showOverlays,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(8.dp)
             ) {
-                // Back Button
-                IconButton(onClick = onClose) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
+                val dlState = downloadStates[currentItem.uri.toString()] ?: DownloadState.Idle
+
+                Row(
+                    modifier = Modifier.background(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = MaterialTheme.shapes.medium
                     )
-                }
-                // Share Button
-                IconButton(onClick = {
-                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = if (currentItem.isVideo) "video/*" else "image/*"
-                        putExtra(Intent.EXTRA_STREAM, currentItem.uri)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    context.startActivity(Intent.createChooser(shareIntent, "Share Status"))
-                }) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Share",
-                        tint = Color.White
-                    )
-                }
-                // Download Button
-                IconButton(
-                    onClick = { onDownload(currentItem) },
-                    enabled = dlState !is DownloadState.InProgress && dlState !is DownloadState.Done
                 ) {
-                    when (dlState) {
-                        is DownloadState.InProgress -> {
-                            CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(4.dp)
-                            )
+                    // Back Button
+                    IconButton(onClick = onClose) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                    // Share Button
+                    IconButton(onClick = {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = if (currentItem.isVideo) "video/*" else "image/*"
+                            putExtra(Intent.EXTRA_STREAM, currentItem.uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        is DownloadState.Done -> {
-                            Icon(
-                                imageVector = Icons.Default.DownloadDone,
-                                contentDescription = "Downloaded",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        else -> {
-                            Icon(
-                                imageVector = Icons.Default.Download,
-                                contentDescription = "Download",
-                                tint = Color.White
-                            )
+                        context.startActivity(Intent.createChooser(shareIntent, "Share Status"))
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share",
+                            tint = Color.White
+                        )
+                    }
+                    // Download Button
+                    IconButton(
+                        onClick = { onDownload(currentItem) },
+                        enabled = dlState !is DownloadState.InProgress && dlState !is DownloadState.Done
+                    ) {
+                        when (dlState) {
+                            is DownloadState.InProgress -> {
+                                CircularProgressIndicator(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(4.dp)
+                                )
+                            }
+                            is DownloadState.Done -> {
+                                Icon(
+                                    imageVector = Icons.Default.DownloadDone,
+                                    contentDescription = "Downloaded",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            else -> {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Download",
+                                    tint = Color.White
+                                )
+                            }
                         }
                     }
                 }
@@ -177,7 +192,15 @@ fun MediaViewerItem(
         contentAlignment = Alignment.Center
     ) {
         if (item.isVideo) {
-            VideoPlayer(uri = item.uri, playWhenReady = isFocused)
+            // Bug 2 Fix: Wrap VideoPlayer with navigation bar inset padding so
+            // ExoPlayer native controls sit above the system navigation bar.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+            ) {
+                VideoPlayer(uri = item.uri, playWhenReady = isFocused)
+            }
         } else {
             AsyncImage(
                 model = item.uri,
@@ -207,6 +230,7 @@ fun VideoPlayer(uri: Uri, playWhenReady: Boolean) {
         exoPlayer.playWhenReady = playWhenReady
     }
 
+    // Pause/resume with app lifecycle
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
@@ -226,8 +250,20 @@ fun VideoPlayer(uri: Uri, playWhenReady: Boolean) {
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoPlayer
-                    useController = true // Show native video controls (play/pause/seek)
-                    // The underlying AndroidView shouldn't block our clicks
+                    useController = true
+
+                    // Bug 2 Fix: Use WindowInsetsCompat to apply bottom padding equal to
+                    // the navigation bar height, keeping player controls above the nav bar.
+                    ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+                        val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+                        view.setPadding(
+                            view.paddingLeft,
+                            view.paddingTop,
+                            view.paddingRight,
+                            navBarInsets.bottom
+                        )
+                        insets
+                    }
                 }
             },
             modifier = Modifier.fillMaxSize()

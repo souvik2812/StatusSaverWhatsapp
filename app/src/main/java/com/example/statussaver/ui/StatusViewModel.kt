@@ -166,7 +166,7 @@ class StatusViewModel(application: Application) : AndroidViewModel(application) 
     // ─── Tab Selection ───────────────────────────────────────────────────────
 
     fun selectTab(index: Int) {
-        _selectedTab.value = index.coerceIn(0, 2)
+        _selectedTab.value = index.coerceIn(0, 3)
     }
 
     // ─── Download ────────────────────────────────────────────────────────────
@@ -184,7 +184,12 @@ class StatusViewModel(application: Application) : AndroidViewModel(application) 
                 .onSuccess { savedUri ->
                     if (savedUri != null) {
                         _downloadStates.update { it + (key to DownloadState.Done) }
-                        _snackbarMessage.value = "✅ Saved to ${if (item.isVideo) "Downloads" else "Pictures"}/StatusSaver"
+                        val dir = when {
+                            item.isAudio -> "Music"
+                            item.isVideo -> "Movies"
+                            else -> "Pictures"
+                        }
+                        _snackbarMessage.value = "✅ Saved to $dir/StatusSaver"
                     } else {
                         _downloadStates.update { it + (key to DownloadState.Failed("Save failed")) }
                         _snackbarMessage.value = "❌ Save failed. Please try again."

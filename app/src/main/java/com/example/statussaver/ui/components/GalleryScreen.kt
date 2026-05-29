@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -33,6 +35,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
@@ -77,7 +81,7 @@ import com.example.statussaver.ui.GalleryUiState
 
 // ─── Tab Definitions ─────────────────────────────────────────────────────────
 
-private val TABS = listOf("All ✦", "Photos 🖼", "Videos 🎬")
+private val TABS = listOf("All ✦", "Photos 🖼", "Videos 🎬", "Audio 🎵")
 
 // ─── Gallery Root ─────────────────────────────────────────────────────────────
 
@@ -128,12 +132,21 @@ fun GalleryScreen(
             is GalleryUiState.Error           -> ErrorScreen(message = uiState.message, onRetry = onRefresh)
             is GalleryUiState.Success         -> {
                 val filtered = when (selectedTab) {
-                    1 -> uiState.items.filter { !it.isVideo }
+                    1 -> uiState.items.filter { !it.isVideo && !it.isAudio }
                     2 -> uiState.items.filter { it.isVideo }
+                    3 -> uiState.items.filter { it.isAudio }
                     else -> uiState.items
                 }
                 if (filtered.isEmpty()) {
                     EmptyScreen(selectedTab = selectedTab, onRefresh = onRefresh)
+                } else if (selectedTab == 3) {
+                    // Audio list view
+                    AudioList(
+                        items = filtered,
+                        downloadStates = downloadStates,
+                        onDownload = onDownload,
+                        onItemClick = { item, index -> onItemClick(item, index, filtered) }
+                    )
                 } else {
                     StatusGrid(
                         items = filtered,
@@ -283,6 +296,7 @@ private fun EmptyScreen(selectedTab: Int, onRefresh: () -> Unit) {
     val label = when (selectedTab) {
         1 -> "No photos found"
         2 -> "No videos found"
+        3 -> "No audio found"
         else -> "No statuses found"
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
@@ -323,6 +337,123 @@ private fun StatusGrid(
                 onDownload = { onDownload(item) },
                 onClick = { onItemClick(item, index) }
             )
+        }
+    }
+}
+
+// ─── Audio List ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun AudioList(
+    items: List<StatusItem>,
+    downloadStates: Map<String, DownloadState>,
+    onDownload: (StatusItem) -> Unit,
+    onItemClick: (StatusItem, Int) -> Unit
+) {
+    LazyColumn(
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(
+            count = items.size,
+            key = { index -> items[index].uri.toString() }
+        ) { index ->
+            val item = items[index]
+            AudioCard(
+                item = item,
+                downloadState = downloadStates[item.uri.toString()] ?: DownloadState.Idle,
+                onDownload = { onDownload(item) },
+                onShare = {},   // share handled inside AudioPlayerScreen
+                onClick = { onItemClick(item, index) }
+            )
+        }
+    }
+}
+
+// ─── Audio Card ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun AudioCard(
+    item: StatusItem,
+    downloadState: DownloadState,
+    onDownload: () -> Unit,
+    onShare: () -> Unit,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(NeonViolet.copy(alpha = 0.35f), ElectricBlue.copy(alpha = 0.15f))
+                ),
+                shape = RoundedCornerShape(14.dp)
+            )
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
+            // Waveform icon with coloured circle background
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.GraphicEq,
+                    contentDescription = "Audio",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // File name & size
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.name,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = item.formattedSize,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    fontSize = 11.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Music note tag
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                modifier = Modifier.size(16.dp)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Download button
+            DownloadButton(downloadState = downloadState, onDownload = onDownload)
         }
     }
 }

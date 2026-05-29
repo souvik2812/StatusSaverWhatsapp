@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
  * Repository responsible for:
  *  1. Persisting the SAF granted URI permission across app restarts.
  *  2. Traversing the WhatsApp .Statuses document tree to produce [StatusItem] objects.
- *  3. Copying a status file to the public Downloads folder via MediaStore.
+ *  3. Copying a status file to the correct public folder via MediaStore.
  */
 class StorageRepository(private val context: Context) {
 
@@ -48,7 +48,20 @@ class StorageRepository(private val context: Context) {
             WA_STATUS_DOC_ID
         )
 
-        private val ALLOWED_MIME_TYPES = setOf("image/jpeg", "video/mp4")
+        // ── Supported MIME types ──────────────────────────────────────────────
+        private val ALLOWED_MIME_TYPES = setOf(
+            // Images
+            "image/jpeg",
+            // Videos
+            "video/mp4",
+            // Audio — WhatsApp voice notes & audio statuses
+            "audio/opus",   // .opus (WhatsApp voice notes)
+            "audio/ogg",    // .ogg (some devices report opus as ogg)
+            "audio/mp4",    // .m4a
+            "audio/mpeg",   // .mp3
+            "audio/aac",    // .aac
+            "audio/3gpp"    // .3gp audio
+        )
     }
 
     // ─── Persisted Permission ────────────────────────────────────────────────
@@ -95,7 +108,7 @@ class StorageRepository(private val context: Context) {
 
     /**
      * Traverses the granted document tree and returns a list of [StatusItem] objects
-     * for every `.jpg` / `.mp4` file found (including hidden files that start with `.`).
+     * for every `.jpg`, `.mp4`, `.opus`, `.m4a`, `.mp3`, `.aac` file found.
      *
      * This function is safe to call on [Dispatchers.IO] — all I/O happens there.
      */
@@ -134,37 +147,57 @@ class StorageRepository(private val context: Context) {
     private fun guessMimeType(name: String): String? = when {
         name.endsWith(".jpg", ignoreCase = true) ||
         name.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
-        name.endsWith(".mp4", ignoreCase = true) -> "video/mp4"
+        name.endsWith(".mp4", ignoreCase = true)  -> "video/mp4"
+        name.endsWith(".opus", ignoreCase = true) -> "audio/opus"
+        name.endsWith(".ogg", ignoreCase = true)  -> "audio/ogg"
+        name.endsWith(".m4a", ignoreCase = true)  -> "audio/mp4"
+        name.endsWith(".mp3", ignoreCase = true)  -> "audio/mpeg"
+        name.endsWith(".aac", ignoreCase = true)  -> "audio/aac"
+        name.endsWith(".3gp", ignoreCase = true)  -> "audio/3gpp"
         else -> null
     }
 
     // ─── MediaStore Writer ───────────────────────────────────────────────────
 
     /**
-     * Copies [item] from the SAF document tree into the public Downloads folder,
-     * inside a sub-folder called "StatusSaver", so it shows up in the device gallery.
+     * Copies [item] from the SAF document tree into the appropriate public folder:
+     *  - Images  → Pictures/StatusSaver
+     *  - Videos  → Movies/StatusSaver  (Bug fix: Downloads is NOT allowed for Video.Media)
+     *  - Audio   → Music/StatusSaver
      *
      * @return The [Uri] of the newly created MediaStore entry, or null on failure.
      */
     suspend fun downloadStatus(item: StatusItem): Uri? = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
 
-        val collection = if (item.isVideo) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            else
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            else
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        }
-
-        val relativeDir = if (item.isVideo) {
-            "${Environment.DIRECTORY_DOWNLOADS}/StatusSaver"
-        } else {
-            "${Environment.DIRECTORY_PICTURES}/StatusSaver"
+        // ── Choose the correct MediaStore collection & relative directory ─────
+        val (collection, relativeDir) = when {
+            item.isAudio -> {
+                // Audio files → Music/StatusSaver
+                val col = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                    MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                else
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                col to "${Environment.DIRECTORY_MUSIC}/StatusSaver"
+            }
+            item.isVideo -> {
+                // Videos → Movies/StatusSaver
+                // ⚠ IMPORTANT: Android 10+ does NOT allow Video.Media to write to "Downloads".
+                // Allowed directories for Video.Media are: DCIM, Movies, Pictures.
+                val col = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                    MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                else
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                col to "${Environment.DIRECTORY_MOVIES}/StatusSaver"
+            }
+            else -> {
+                // Images → Pictures/StatusSaver
+                val col = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                    MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                else
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                col to "${Environment.DIRECTORY_PICTURES}/StatusSaver"
+            }
         }
 
         val cv = ContentValues().apply {

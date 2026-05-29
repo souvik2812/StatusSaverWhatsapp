@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider paths configuration.
+    Exposes the app's internal cache dir for sharing files received
+    from SAF (after copying them to a temp location).
+    The SAF URIs already carry FLAG_GRANT_READ_URI_PERMISSION so
+    for those we pass the URI directly; this file is the fallback
+    for File-based sharing if ever needed.
+-->
+<paths>
+    <cache-path
+        name="status_cache"
+        path="status_share/" />
+    <external-cache-path
+        name="status_ext_cache"
+        path="status_share/" />
+</paths>
